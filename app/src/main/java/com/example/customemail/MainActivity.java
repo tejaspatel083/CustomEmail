@@ -6,20 +6,20 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.customemail.Adapter.MyListAdapter;
 import com.example.customemail.Model.MyDataList;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import org.apache.poi.hssf.usermodel.HSSFCell;
-import org.apache.poi.hssf.usermodel.HSSFCellStyle;
-import org.apache.poi.hssf.usermodel.HSSFRow;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.Cell;
@@ -30,15 +30,18 @@ import org.apache.poi.ss.usermodel.Workbook;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
 
-    private FloatingActionButton btnEmail;
+    FloatingActionButton addAttachement, sendEmail;
+    ExtendedFloatingActionButton addFab;
+
+    Boolean isAllFabsVisible;
+
     private MyDataList[] myListData;
-    //private File filePath = new File(Environment.getExternalStorageDirectory() + "/Demo.xls");
+    Uri URI = null;
+    private static final int RESULT_LOAD_IMAGE = 101;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +51,71 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 Manifest.permission.READ_EXTERNAL_STORAGE}, PackageManager.PERMISSION_GRANTED);
 
-        btnEmail = findViewById(R.id.buttonEmail);
+
+        addFab = findViewById(R.id.add_fab);
+        addAttachement = findViewById(R.id.add_attachement_fab);
+        sendEmail = findViewById(R.id.send_fab);
+
+
+        setFabVisibility();
+
+        addFab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                buttonCreateExcel(v);
+
+                if (!isAllFabsVisible) {
+
+                    addAttachement.show();
+                    sendEmail.show();
+
+                    addFab.extend();
+
+                    isAllFabsVisible = true;
+                } else {
+
+                    addAttachement.hide();
+                    sendEmail.hide();
+
+                    addFab.shrink();
+
+                    isAllFabsVisible = false;
+                }
+            }
+        });
+
+        addAttachement.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        addAttachement();
+                    }
+                });
+
+        sendEmail.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        sendEmail();
+                    }
+                });
+
+
+        getEmpData();
+
+
+
+        RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recyclerView);
+        MyListAdapter adapter = new MyListAdapter(myListData);
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setAdapter(adapter);
+
+
+    }
+
+    private void getEmpData() {
 
         myListData = new MyDataList[]{
                 new MyDataList("1", "Tejas"),
@@ -72,18 +139,20 @@ public class MainActivity extends AppCompatActivity {
                 new MyDataList("19", "Virat"),
                 new MyDataList("20", "Anushka"),
         };
+    }
 
+    private void setFabVisibility() {
 
-        RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recyclerView);
-        MyListAdapter adapter = new MyListAdapter(myListData);
-        recyclerView.setHasFixedSize(true);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(adapter);
+        addAttachement.setVisibility(View.GONE);
+        sendEmail.setVisibility(View.GONE);
 
+        isAllFabsVisible = false;
 
+        addFab.shrink();
     }
 
     public void buttonCreateExcel(View view){
+
 
 
         Workbook wb=new HSSFWorkbook();
@@ -93,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
 
         Sheet sheet=null;
         sheet = wb.createSheet("Name of sheet");
-       
+
         Row row =sheet.createRow(0);
 
         cell=row.createCell(0);
@@ -125,17 +194,22 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-        File file = new File(getExternalFilesDir(null),"plik.xls");
+        File folder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        File file = new File(folder, "EmployeeList.xls");
+
         FileOutputStream outputStream =null;
 
         try {
             outputStream=new FileOutputStream(file);
             wb.write(outputStream);
-            Toast.makeText(getApplicationContext(),"OK",Toast.LENGTH_LONG).show();
+
+            Toast.makeText(getApplicationContext(),"Data exported to Excel",Toast.LENGTH_LONG).show();
+
+
         } catch (java.io.IOException e) {
             e.printStackTrace();
 
-            Toast.makeText(getApplicationContext(),"NO OK",Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(),"Something Wrong",Toast.LENGTH_LONG).show();
             try {
                 outputStream.close();
             } catch (IOException ex) {
@@ -143,4 +217,50 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+    private void addAttachement() {
+
+
+        Intent chooseFileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        chooseFileIntent.setType("*/*");
+        chooseFileIntent.addCategory(Intent.CATEGORY_OPENABLE);
+
+        chooseFileIntent = Intent.createChooser(chooseFileIntent, "Choose a file");
+        startActivityForResult(chooseFileIntent, RESULT_LOAD_IMAGE);
+    }
+
+    private void sendEmail() {
+
+
+        try
+        {
+
+            Intent emailIntent = new Intent(Intent.ACTION_SEND);
+            emailIntent.setType("*/*");
+            emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[] {"tjp083@gmail.com"});
+            emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Employee List");
+            emailIntent.putExtra(Intent.EXTRA_TEXT, "Hello Everyone!!");
+
+            if (URI != null) {
+                emailIntent.putExtra(Intent.EXTRA_STREAM, URI);
+            }
+            this.startActivity(Intent.createChooser(emailIntent, "Sending email..."));
+
+        }
+        catch (Throwable t) {
+            Toast.makeText(this, "Request failed try again: "+ t.toString(), Toast.LENGTH_LONG).show();
+        }
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
+
+            URI = data.getData();
+            Toast.makeText(MainActivity.this, "Attachement Added", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 }
